@@ -1,0 +1,17 @@
+{
+    "name": "aris/parserdm",
+    "autoload": {
+        "psr-4": {
+            "Aris\\Parserdm\\": "src/"
+        }
+    },
+    "authors": [
+        {
+            "name": "aref-ivan",
+            "email": "aref.ivan@gmail.com"
+        }
+    ],
+    "require": {
+        "phpoffice/phpspreadsheet": "^1.29"
+    }
+}
