@@ -1,11 +1,21 @@
 <?php
 
-require_once('autoload.php');
+use PhpParser\Node\Scalar\MagicConst\Dir;
+
+require_once('../autoload.php');
 
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use React\Http\Browser;
 
+$loop = \React\EventLoop\Loop::get();
+$client = new Browser($loop);
 
+$client->get('https://api.detmir.ru/v2/brands/7')
+        ->then( function(Psr\Http\Message\ResponseInterface $response) {
+            var_dump(json_decode($response->getBody()->__toString() , associative:true));
+        });
+die;
 function getBrandLegoId( string $brandName) : int
 {
     $url = 'https://api.detmir.ru/v2/brands/' ;
