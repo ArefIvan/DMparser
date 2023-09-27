@@ -2,6 +2,7 @@
 
 namespace Aris\Parserdm\Core;
 
+use Exception;
 use React\Http\Browser;
 use Psr\Http\Message\ResponseInterface;
 use React\Http\Message\Response;
@@ -80,18 +81,34 @@ class DmParser
         } while (count($response) >= 100 || $offset < 10);
 
     }
-
+    public function getData()
+    {
+        return $this->data;
+    } 
 
     public function parse()
     {
-        $this->setLocations();
+        // $this->setLocations();
         $this->setProducts();
-        foreach ($this->products as $id => $arcicle) {
+        $this->locations = ["RU-AD" => 'adigea',"RU-AL" => 'altay'];
+        foreach ($this->products as $productId => $productArcicle) {
+            $this->data[$productId] = ['article' => $productArcicle];
             foreach ( $this->locations as $iso => $region ) {
+                $url = sprintf('https://api.detmir.ru/v2/products/%d/delivery?filter=region.iso:%s', $productId, $iso ); 
                 
+                $this->client->get($url)
+                        ->then(
+                        function( ResponseInterface $response) use ($productId , $iso) {
+                            $res = json_decode($response->getBody()->__toString(),associative:true);
+                            $this->data[$productId] += [$iso => count( $res['types']['store']['variants'])];
+                        },
+                        function( Exception $e) {
+                            print $e->getMessage();
+                        }
+                    );
             }
 
         }
-        return $this->products;
+        
     }
 }

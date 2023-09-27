@@ -12,5 +12,8 @@ $loop = Loop::get();
 $client = new Browser($loop);
 
 $parser = new DmParser($client);
+$parser->parse();
 
-var_dump($parser->parse());
+$loop->run();
+
+var_dump($parser->getData());
