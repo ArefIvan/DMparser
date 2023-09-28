@@ -2,9 +2,11 @@
 
 namespace Aris\Parserdm\Core;
 
+use Clue\React\Mq\Queue;
 use Exception;
 use React\Http\Browser;
 use Psr\Http\Message\ResponseInterface;
+use React\EventLoop\Loop;
 use React\Http\Message\Response;
 use React\Promise\Promise;
 use React\Promise\PromiseInterface;
@@ -12,7 +14,7 @@ use React\Promise\PromiseInterface;
 class DmParser 
 {
 
-    private $client;
+    // private $client;
 
     private $products = [];
     private $urls = [];
@@ -21,9 +23,9 @@ class DmParser
     private $locations = [];
     private $data = [];
 
-    public function __construct(Browser $client , string $brandName = 'LEGO' , int $brandId = BRAND_ID )
+    public function __construct( string $brandName = 'LEGO' , int $brandId = BRAND_ID )
     {
-        $this->client = $client;
+        // $this->client = $client;
         $this->brandName = $brandName;
         if ( $brandName !== BRAND_NAME ){
             $this->setBrandId($brandName);
@@ -86,29 +88,53 @@ class DmParser
         return $this->data;
     } 
 
-    public function parse()
+    public function setData()
     {
-        // $this->setLocations();
+        $this->setLocations();
         $this->setProducts();
-        $this->locations = ["RU-AD" => 'adigea',"RU-AL" => 'altay'];
         foreach ($this->products as $productId => $productArcicle) {
             $this->data[$productId] = ['article' => $productArcicle];
+            $this->data[$productId] += ['stores' => []];
             foreach ( $this->locations as $iso => $region ) {
-                $url = sprintf('https://api.detmir.ru/v2/products/%d/delivery?filter=region.iso:%s', $productId, $iso ); 
-                
-                $this->client->get($url)
-                        ->then(
+                $this->data[$productId]['stores'] += [$iso => null];
+            }
+        }
+    }
+
+    private function parseData( array $data )
+    {
+        $loop = Loop::get();
+        $client = new Browser($loop);
+        $queue = new Queue(10, null, function($url) use ($client) {
+            return $client->get($url);
+        });
+
+        foreach ( $data as $productId => $products ) {
+            foreach ($products['stores'] as $iso => $item) {
+                $url = sprintf(URL_DELIVERY, $productId, $iso);
+                $queue($url)
+                    ->then(
                         function( ResponseInterface $response) use ($productId , $iso) {
-                            $res = json_decode($response->getBody()->__toString(),associative:true);
-                            $this->data[$productId] += [$iso => count( $res['types']['store']['variants'])];
+                            $res = json_decode((string)$response->getBody(), associative:true);
+                            if ( null === $this->data[$productId]['stores'][$iso]) {
+                                $this->data[$productId]['stores'][$iso] = count( $res['types']['store']['variants']);                                
+                            }
                         },
-                        function( Exception $e) {
-                            print $e->getMessage();
+                        function( Exception $e) use ($productId , $iso){
+                            $errors = sprintf('ProductId: %d; LocationIso: %s; Error: %s', $productId, $iso, $e->getMessage());
+                            file_put_contents('../errors.log',$errors . PHP_EOL, FILE_APPEND);
                         }
                     );
             }
-
         }
-        
+
+        $loop->run();
+
+    }
+    public function parse()
+    {
+        $this->setData();
+        $data = $this->data;
+        $this->parseData($data);
     }
 }
